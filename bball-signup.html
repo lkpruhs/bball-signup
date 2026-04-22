@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pick-up Basketball Sign-up</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Barlow', sans-serif; background: #FDF6ED; color: #1a1208; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 640px; margin: 0 auto; }
+
+  .header { background: #D85A30; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; }
+  .header svg { width: 52px; height: 52px; flex-shrink: 0; }
+  .header h1 { font-size: 24px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+  .header p { font-size: 13px; color: #FAC775; }
+
+  .day-card { background: #fff; border: 1px solid #F0D9B5; border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 10px; transition: border-color 0.2s; }
+  .day-card.full { background: #FFF3E0; border-color: #EF9F27; }
+  .day-left { flex: 1; }
+  .day-header { display: flex; align-items: center; gap: 10px; }
+  .day-name { font-size: 16px; font-weight: 600; color: #1a1208; }
+  .day-card.full .day-name { color: #412402; }
+  .day-count { font-size: 13px; color: #888; }
+  .day-card.full .day-count { color: #854F0B; }
+  .full-badge { font-size: 11px; font-weight: 600; background: #EF9F27; color: #412402; border-radius: 6px; padding: 2px 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .players { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .player-pill { font-size: 13px; background: #FDF6ED; border: 1px solid #F0D9B5; border-radius: 999px; padding: 3px 12px; color: #412402; }
+  .day-card.full .player-pill { background: #FAC775; border-color: #EF9F27; }
+
+  .btn { font-family: 'Barlow', sans-serif; font-size: 14px; font-weight: 600; padding: 8px 18px; border-radius: 8px; cursor: pointer; border: none; white-space: nowrap; transition: background 0.15s, opacity 0.15s; }
+  .btn-orange { background: #D85A30; color: #fff; }
+  .btn-orange:hover { background: #BA4A24; }
+  .btn-disabled { background: #E8D5B7; color: #A08060; cursor: not-allowed; }
+
+  .footer { font-size: 12px; color: #A08060; margin-top: 1.25rem; text-align: center; }
+  .status { font-size: 12px; color: #A08060; text-align: center; margin-top: 8px; min-height: 16px; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; }
+  .overlay.active { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 1.5rem; width: 320px; max-width: 90vw; }
+  .modal h2 { font-size: 17px; font-weight: 600; margin-bottom: 1rem; color: #1a1208; }
+  .modal input { width: 100%; padding: 10px 14px; border: 1px solid #E0C99A; border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 15px; color: #1a1208; background: #FDF6ED; outline: none; margin-bottom: 1rem; }
+  .modal input:focus { border-color: #D85A30; }
+  .modal-btns { display: flex; gap: 8px; }
+  .btn-ghost { background: #F0E8DA; color: #412402; }
+  .btn-ghost:hover { background: #E8D5B7; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="24" r="20" fill="#F0997B" stroke="#fff" stroke-width="1.5"/>
+      <path d="M24 4 C24 4 24 44 24 44" stroke="#fff" stroke-width="1.5"/>
+      <path d="M4 24 C4 24 44 24 44 24" stroke="#fff" stroke-width="1.5"/>
+      <path d="M7 12 C14 18 14 30 7 36" stroke="#fff" stroke-width="1.5" fill="none"/>
+      <path d="M41 12 C34 18 34 30 41 36" stroke="#fff" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div>
+      <h1>Pick-up basketball</h1>
+      <p>Sign up for a run — max 15 players per day. Resets every Sunday.</p>
+    </div>
+  </div>
+
+  <div id="days-container"><p style="color:#A08060;font-size:14px;text-align:center;padding:2rem 0;">Loading...</p></div>
+  <p class="footer" id="footer"></p>
+  <p class="status" id="status"></p>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modal-title">Sign up for Monday</h2>
+    <input type="text" id="name-input" placeholder="Your name" />
+    <div class="modal-btns">
+      <button class="btn btn-orange" id="modal-confirm" style="flex:1;">Confirm</button>
+      <button class="btn btn-ghost" id="modal-cancel" style="flex:1;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LIMIT = 15;
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBVqPdGTlYyYlNZIHQLENdo4M0KETZvwbDVQQsbtUcR0WzvIU_BicgJO-SzFTFXkzZ/exec';
+const days = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+let signups = {Monday:[],Tuesday:[],Wednesday:[],Thursday:[],Friday:[]};
+let activeDay = null;
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+function getWeekId() {
+  const now = new Date();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  return mon.toISOString().slice(0, 10);
+}
+
+function nextSundayStr() {
+  const now = new Date();
+  const d = (7 - now.getDay()) % 7 || 7;
+  const sun = new Date(now);
+  sun.setDate(now.getDate() + d);
+  return sun.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+
+async function fetchData() {
+  const res = await fetch(SCRIPT_URL);
+  if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+  const text = await res.text();
+  if (!text || text.trim() === '') return null;
+  return JSON.parse(text);
+}
+
+async function putData(data) {
+  await fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+async function loadSignups() {
+  setStatus('Loading...');
+  try {
+    const record = await fetchData();
+    const currentWeek = getWeekId();
+    if (record && record.week === currentWeek) {
+      days.forEach(d => { if (Array.isArray(record.signups[d])) signups[d] = record.signups[d]; });
+      setStatus('');
+    } else {
+      signups = {Monday:[],Tuesday:[],Wednesday:[],Thursday:[],Friday:[]};
+      await putData({ week: currentWeek, signups });
+      setStatus(record ? 'New week — list has been reset.' : '');
+    }
+  } catch(e) {
+    setStatus('Could not load signups: ' + e.message);
+  }
+  document.getElementById('footer').textContent = 'Signups are shared with everyone and reset every Sunday. Next reset: ' + nextSundayStr() + '.';
+  render();
+}
+
+async function saveSignups() {
+  setStatus('Saving...');
+  try {
+    await putData({ week: getWeekId(), signups });
+    setTimeout(() => setStatus(''), 1000);
+  } catch(e) {
+    setStatus('Could not save: ' + e.message);
+  }
+}
+
+function render() {
+  const container = document.getElementById('days-container');
+  container.innerHTML = '';
+  days.forEach(day => {
+    const list = signups[day];
+    const full = list.length >= LIMIT;
+
+    const card = document.createElement('div');
+    card.className = 'day-card' + (full ? ' full' : '');
+
+    const left = document.createElement('div');
+    left.className = 'day-left';
+
+    const header = document.createElement('div');
+    header.className = 'day-header';
+
+    const dayEl = document.createElement('span');
+    dayEl.className = 'day-name';
+    dayEl.textContent = day;
+
+    const countEl = document.createElement('span');
+    countEl.className = 'day-count';
+    countEl.textContent = list.length + ' / ' + LIMIT;
+
+    header.appendChild(dayEl);
+    header.appendChild(countEl);
+
+    if (full) {
+      const badge = document.createElement('span');
+      badge.className = 'full-badge';
+      badge.textContent = 'Full';
+      header.appendChild(badge);
+    }
+
+    left.appendChild(header);
+
+    if (list.length) {
+      const players = document.createElement('div');
+      players.className = 'players';
+      list.forEach(name => {
+        const pill = document.createElement('span');
+        pill.className = 'player-pill';
+        pill.textContent = name;
+        players.appendChild(pill);
+      });
+      left.appendChild(players);
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'btn ' + (full ? 'btn-disabled' : 'btn-orange');
+    btn.textContent = full ? 'Full' : 'Sign up';
+    btn.disabled = full;
+    if (!full) btn.onclick = () => openModal(day);
+
+    card.appendChild(left);
+    card.appendChild(btn);
+    container.appendChild(card);
+  });
+}
+
+function openModal(day) {
+  activeDay = day;
+  document.getElementById('modal-title').textContent = 'Sign up for ' + day;
+  document.getElementById('name-input').value = '';
+  document.getElementById('overlay').classList.add('active');
+  setTimeout(() => document.getElementById('name-input').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('active');
+  activeDay = null;
+}
+
+async function confirmSignup() {
+  const name = document.getElementById('name-input').value.trim();
+  if (!name) { document.getElementById('name-input').focus(); return; }
+  if (activeDay && signups[activeDay].length < LIMIT) {
+    signups[activeDay].push(name);
+    closeModal();
+    render();
+    await saveSignups();
+  } else {
+    closeModal();
+  }
+}
+
+document.getElementById('modal-confirm').onclick = confirmSignup;
+document.getElementById('modal-cancel').onclick = closeModal;
+document.getElementById('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmSignup(); });
+document.getElementById('overlay').addEventListener('click', e => { if (e.target === document.getElementById('overlay')) closeModal(); });
+
+loadSignups();
+</script>
+</body>
+</html>
